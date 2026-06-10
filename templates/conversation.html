@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}Чат с {{ other_user.username }}{% endblock %}
+
+{% block content %}
+<div class="card" style="display: flex; flex-direction: column; height: 80vh; padding: 20px;">
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #2a2f3f;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #4a6cf7; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            {{ other_user.get_avatar_letter() }}
+        </div>
+        <div>
+            <h2 style="margin: 0;">{{ other_user.username }}</h2>
+            <div class="text-muted" style="font-size: 12px;">
+                {% if other_user.bio %}{{ other_user.bio[:100] }}{% else %}Нет описания{% endif %}
+            </div>
+        </div>
+        <div style="margin-left: auto;">
+            <a href="{{ url_for('main.chat') }}" class="btn">↩ Назад</a>
+        </div>
+    </div>
+    
+    <div id="messages-container" style="flex: 1; overflow-y: auto; margin-bottom: 20px; padding: 10px; display: flex; flex-direction: column; gap: 10px;"></div>
+    
+    <form id="message-form" style="display: flex; gap: 10px;">
+        <textarea id="message-text" rows="2" placeholder="Введите сообщение..." style="flex: 1; margin: 0;"></textarea>
+        <button type="submit" class="btn btn-primary">📤 Отправить</button>
+    </form>
+</div>
+
+<!-- Модальное окно для удаления сообщения -->
+<div id="delete-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+    <div id="modal-content" style="background: #141824; border-radius: 12px; padding: 24px; width: 400px; max-width: 90%; border: 1px solid #3a4055; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+        <h3 id="modal-title" style="margin-bottom: 20px; color: #ffffff;">🗑️ Удаление сообщения</h3>
+        <div id="modal-options" style="margin-bottom: 24px;"></div>
+        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+            <button id="modal-cancel-btn" class="btn" style="background: #2a2f3f; padding: 10px 20px;">Отмена</button>
+            <button id="modal-confirm-btn" class="btn btn-danger" style="background: #dc3545; padding: 10px 20px;">Удалить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let lastMessageTime = null;
+    let updateInterval;
+    let userId = {{ other_user.id }};
+    let currentUserId = {{ current_user.id }};
+    let pendingMessageId = null;
+    let pendingMessageSenderId = null;
+    let pendingIsCurrentUserSender = false;
+    
+    function formatDate(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+    
+    function scrollToBottom() {
+        const container = document.getElementById('messages-container');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function loadMessages() {
+        let url = `/api/messages/${userId}`;
+        if (lastMessageTime) {
+            url += `?after=${encodeURIComponent(lastMessageTime)}`;
+        }
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('messages-container');
+                
+                if (!lastMessageTime && data.messages.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state" style="text-align: center; padding: 40px;">
+                            <div class="empty-icon">💬</div>
+                            <h3>Нет сообщений</h3>
+                            <p>Напишите ${escapeHtml('{{ other_user.username }}')} первым!</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                if (data.messages.length > 0) {
+                    if (!lastMessageTime) {
+                        container.innerHTML = data.messages.map(msg => {
+                            const isCurrentUser = msg.sender_id === currentUserId;
+                            // Свои сообщения (справа) → кнопка слева от сообщения
+                            // Чужие сообщения (слева) → кнопка справа от сообщения
+                            const btnPosition = isCurrentUser ? 'left' : 'right';
+                            return `
+                                <div class="message-wrapper" data-message-id="${msg.id}" data-sender-id="${msg.sender_id}" style="text-align: ${isCurrentUser ? 'right' : 'left'}; display: flex; justify-content: ${isCurrentUser ? 'flex-end' : 'flex-start'}; margin: 5px 0;">
+                                    <div style="position: relative; max-width: 70%;">
+                                        <div style="background: ${isCurrentUser ? '#4a6cf7' : '#2a2f3f'}; padding: 10px 15px; border-radius: 15px;">
+                                            <div>${escapeHtml(msg.text)}</div>
+                                            <div style="font-size: 10px; margin-top: 5px; opacity: 0.7;">
+                                                ${formatDate(msg.created_at)}
+                                                ${isCurrentUser && msg.is_read ? ' ✓✓' : ''}
+                                            </div>
+                                        </div>
+                                        <div class="delete-btn-container" style="position: absolute; top: 50%; transform: translateY(-50%); ${btnPosition}: -40px; opacity: 0; transition: opacity 0.2s;">
+                                            <button class="delete-message-btn" data-message-id="${msg.id}" data-sender-id="${msg.sender_id}" style="background: #dc3545; border: none; border-radius: 50%; width: 32px; height: 32px; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                        scrollToBottom();
+                    } else {
+                        for (const msg of data.messages) {
+                            const isCurrentUser = msg.sender_id === currentUserId;
+                            const btnPosition = isCurrentUser ? 'left' : 'right';
+                            const messageHtml = `
+                                <div class="message-wrapper" data-message-id="${msg.id}" data-sender-id="${msg.sender_id}" style="text-align: ${isCurrentUser ? 'right' : 'left'}; display: flex; justify-content: ${isCurrentUser ? 'flex-end' : 'flex-start'}; margin: 5px 0;">
+                                    <div style="position: relative; max-width: 70%;">
+                                        <div style="background: ${isCurrentUser ? '#4a6cf7' : '#2a2f3f'}; padding: 10px 15px; border-radius: 15px;">
+                                            <div>${escapeHtml(msg.text)}</div>
+                                            <div style="font-size: 10px; margin-top: 5px; opacity: 0.7;">
+                                                ${formatDate(msg.created_at)}
+                                                ${isCurrentUser && msg.is_read ? ' ✓✓' : ''}
+                                            </div>
+                                        </div>
+                                        <div class="delete-btn-container" style="position: absolute; top: 50%; transform: translateY(-50%); ${btnPosition}: -40px; opacity: 0; transition: opacity 0.2s;">
+                                            <button class="delete-message-btn" data-message-id="${msg.id}" data-sender-id="${msg.sender_id}" style="background: #dc3545; border: none; border-radius: 50%; width: 32px; height: 32px; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            container.insertAdjacentHTML('beforeend', messageHtml);
+                        }
+                        scrollToBottom();
+                    }
+                    
+                    if (data.messages.length > 0) {
+                        lastMessageTime = data.messages[data.messages.length - 1].created_at;
+                    }
+                    
+                    attachDeleteHandlers();
+                }
+            });
+    }
+    
+    function attachDeleteHandlers() {
+        document.querySelectorAll('.delete-message-btn').forEach(btn => {
+            btn.removeEventListener('click', handleDeleteClick);
+            btn.addEventListener('click', handleDeleteClick);
+        });
+        
+        document.querySelectorAll('.message-wrapper').forEach(wrapper => {
+            wrapper.addEventListener('mouseenter', function() {
+                const btnContainer = this.querySelector('.delete-btn-container');
+                if (btnContainer) btnContainer.style.opacity = '1';
+            });
+            wrapper.addEventListener('mouseleave', function() {
+                const btnContainer = this.querySelector('.delete-btn-container');
+                if (btnContainer) btnContainer.style.opacity = '0';
+            });
+        });
+    }
+    
+    function handleDeleteClick(e) {
+        e.stopPropagation();
+        const btn = this;
+        pendingMessageId = btn.dataset.messageId;
+        pendingMessageSenderId = parseInt(btn.dataset.senderId);
+        pendingIsCurrentUserSender = (pendingMessageSenderId === currentUserId);
+        
+        showDeleteModal();
+    }
+    
+    function showDeleteModal() {
+        const modal = document.getElementById('delete-modal');
+        const optionsContainer = document.getElementById('modal-options');
+        
+        if (pendingIsCurrentUserSender) {
+            // Своё сообщение — показываем оба варианта
+            optionsContainer.innerHTML = `
+                <p style="margin-bottom: 20px; color: #c0c0c0;">Выберите вариант удаления:</p>
+                <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 15px; padding: 8px; border-radius: 8px; transition: background 0.2s;">
+                    <input type="radio" name="delete_option" value="self" checked style="width: 18px; height: 18px; margin: 0; cursor: pointer;">
+                    <span style="color: #e0e0e0; font-size: 15px;">Удалить только у меня</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background 0.2s;">
+                    <input type="radio" name="delete_option" value="both" style="width: 18px; height: 18px; margin: 0; cursor: pointer;">
+                    <span style="color: #e0e0e0; font-size: 15px;">Удалить у всех (у меня и у собеседника)</span>
+                </label>
+            `;
+        } else {
+            // Чужое сообщение — показываем только информационное сообщение
+            optionsContainer.innerHTML = `
+                <p style="margin-bottom: 20px; color: #c0c0c0;">Вы не являетесь отправителем этого сообщения.</p>
+                <p style="margin-bottom: 20px; color: #e0e0e0;">Сообщение будет удалено только у вас.</p>
+                <input type="hidden" name="delete_option" value="self">
+            `;
+        }
+        
+        modal.style.display = 'flex';
+    }
+    
+    function closeDeleteModal() {
+        const modal = document.getElementById('delete-modal');
+        modal.style.display = 'none';
+        pendingMessageId = null;
+        pendingMessageSenderId = null;
+        pendingIsCurrentUserSender = false;
+    }
+    
+    function confirmDelete() {
+        if (!pendingMessageId) return;
+        
+        let deleteForAll = false;
+        
+        if (pendingIsCurrentUserSender) {
+            const selectedOption = document.querySelector('input[name="delete_option"]:checked');
+            if (selectedOption) {
+                deleteForAll = selectedOption.value === 'both';
+            }
+        }
+        
+        fetch(`/delete_message/${pendingMessageId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ delete_for_all: deleteForAll })
+        }).then(() => {
+            lastMessageTime = null;
+            loadMessages();
+            closeDeleteModal();
+        });
+    }
+    
+    document.getElementById('modal-cancel-btn').addEventListener('click', closeDeleteModal);
+    document.getElementById('modal-confirm-btn').addEventListener('click', confirmDelete);
+    
+    document.getElementById('delete-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteModal();
+    });
+    
+    document.getElementById('message-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const textarea = document.getElementById('message-text');
+        const text = textarea.value.trim();
+        
+        if (!text) return;
+        
+        fetch(`/send_message/${userId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+        }).then(() => {
+            textarea.value = '';
+            lastMessageTime = null;
+            loadMessages();
+        });
+    });
+    
+    loadMessages();
+    updateInterval = setInterval(() => {
+        lastMessageTime = null;
+        loadMessages();
+    }, 3000);
+    
+    window.addEventListener('beforeunload', function() {
+        if (updateInterval) clearInterval(updateInterval);
+    });
+</script>
+
+<style>
+    .delete-message-btn {
+        background: #dc3545;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .delete-message-btn:hover {
+        background: #c82333;
+        transform: scale(1.05);
+    }
+    
+    .message-wrapper {
+        margin: 5px 0;
+    }
+    
+    #delete-modal {
+        backdrop-filter: blur(4px);
+    }
+    
+    #delete-modal label:hover {
+        background: #1e2436;
+    }
+</style>
+{% endblock %}

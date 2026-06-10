@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Мой профиль{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <h2>👤 Мой профиль</h2>
+    
+    <div style="text-align: center; margin-bottom: 20px;">
+        <div style="width: 150px; height: 150px; border-radius: 50%; background: #4a6cf7; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 48px;">
+            {{ current_user.username[0].upper() }}
+        </div>
+    </div>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <label for="phone">📞 Номер телефона</label>
+        <input type="tel" name="phone" id="phone" value="{{ current_user.phone or '' }}" placeholder="+7 XXX XXX-XX-XX">
+        
+        <label for="birth_date">🎂 Дата рождения</label>
+        <input type="date" name="birth_date" id="birth_date" value="{{ current_user.birth_date if current_user.birth_date else '' }}">
+        
+        <label for="bio">📝 О себе</label>
+        <textarea name="bio" id="bio" rows="4" placeholder="Расскажите о себе...">{{ current_user.bio or '' }}</textarea>
+        
+        <div style="display: flex; gap: 15px; margin-top: 20px;">
+            <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+            <a href="{{ url_for('main.chat') }}" class="btn">↩ Назад в чат</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

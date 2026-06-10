@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Регистрация{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 500px; margin: 0 auto;">
+    <h2>📝 Регистрация</h2>
+    <form method="POST">
+        <label for="username">Имя пользователя *</label>
+        <input type="text" name="username" id="username" required>
+        
+        <label for="email">Email *</label>
+        <input type="email" name="email" id="email" required>
+        
+        <label for="phone">Номер телефона (опционально)</label>
+        <input type="tel" name="phone" id="phone" placeholder="+7 XXX XXX-XX-XX">
+        
+        <label for="password">Пароль *</label>
+        <input type="password" name="password" id="password" required>
+        
+        <label for="password2">Подтверждение пароля *</label>
+        <input type="password" name="password2" id="password2" required>
+        
+        <button type="submit" class="btn">Зарегистрироваться</button>
+    </form>
+    <p style="margin-top: 20px; text-align: center;">
+        Уже есть аккаунт? <a href="{{ url_for('main.login') }}">Войдите</a>
+    </p>
+</div>
+{% endblock %}

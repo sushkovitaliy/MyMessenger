@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Чаты{% endblock %}
+
+{% block content %}
+<h1>💬 Диалоги</h1>
+
+<div class="card">
+    <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+        <h3 style="margin: 0;">Мои диалоги</h3>
+        
+        <!-- Форма поиска новых собеседников -->
+        <div style="position: relative; display: flex; gap: 10px;">
+            <input type="text" id="search-input" placeholder="🔍 Поиск пользователей..." style="width: 250px; margin: 0;">
+            <div id="search-results" style="position: absolute; top: 100%; left: 0; right: 0; background: #1a1e2a; border: 1px solid #3a4055; border-radius: 8px; margin-top: 5px; z-index: 1000; display: none; max-height: 300px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"></div>
+        </div>
+    </div>
+    
+    <div id="dialogs-list"></div>
+</div>
+
+<script>
+    let updateInterval;
+    
+    function formatDate(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+    
+    function loadDialogs() {
+        fetch('/api/dialogs')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('dialogs-list');
+                if (data.dialogs.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">💬</div>
+                            <h3>Нет диалогов</h3>
+                            <p>Начните общение, найдя пользователя в поиске выше</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = data.dialogs.map(dialog => `
+                    <div class="survey-item" style="display: flex; justify-content: space-between; align-items: center;">
+                        <a href="/chat/${dialog.user_id}" style="text-decoration: none; flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <div style="width: 50px; height: 50px; border-radius: 50%; background: #4a6cf7; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                                    ${escapeHtml(dialog.avatar_letter)}
+                                </div>
+                                <div>
+                                    <strong style="font-size: 18px; color: white;">${escapeHtml(dialog.username)}</strong>
+                                    <div class="text-muted" style="font-size: 12px;">${escapeHtml(dialog.last_message_text)}</div>
+                                    <div class="text-muted" style="font-size: 10px;">${formatDate(dialog.last_message_time)}</div>
+                                </div>
+                            </div>
+                        </a>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            ${dialog.unread_count > 0 ? `<span class="badge badge-danger" style="background: #e53e3e; border-radius: 20px; padding: 5px 12px;">${dialog.unread_count}</span>` : ''}
+                            <button class="delete-conversation-btn" data-user-id="${dialog.user_id}" data-username="${escapeHtml(dialog.username)}" style="background: #dc3545; border: none; border-radius: 6px; padding: 8px 12px; color: white; cursor: pointer; font-size: 14px;" title="Удалить диалог">🗑️ Удалить диалог</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Добавляем обработчики для кнопок удаления диалога
+                document.querySelectorAll('.delete-conversation-btn').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const userId = this.dataset.userId;
+                        const username = this.dataset.username;
+                        if (confirm(`Удалить весь диалог с ${username}? Это действие нельзя отменить.`)) {
+                            fetch(`/delete_conversation/${userId}`, { method: 'DELETE' })
+                                .then(() => loadDialogs());
+                        }
+                    });
+                });
+            })
+            .catch(error => console.error('Error loading dialogs:', error));
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Поиск пользователей
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+            
+            fetch(`/api/search_users?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.users || data.users.length === 0) {
+                        searchResults.style.display = 'none';
+                        return;
+                    }
+                    
+                    searchResults.innerHTML = data.users.map(user => `
+                        <div class="search-result" data-user-id="${user.id}" style="padding: 12px 15px; cursor: pointer; border-bottom: 1px solid #2a2f3f; transition: background 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #4a6cf7; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                                    ${escapeHtml(user.avatar_letter)}
+                                </div>
+                                <span style="color: #e0e0e0; font-size: 16px;">${escapeHtml(user.username)}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                    searchResults.style.display = 'block';
+                    
+                    document.querySelectorAll('.search-result').forEach(el => {
+                        el.addEventListener('click', function() {
+                            const userId = this.dataset.userId;
+                            window.location.href = `/chat/${userId}`;
+                        });
+                    });
+                })
+                .catch(error => console.error('Error searching users:', error));
+        });
+    }
+    
+    // Закрытие результатов поиска при клике вне
+    document.addEventListener('click', function(e) {
+        if (searchInput && searchResults && !searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+    
+    // Автообновление каждые 3 секунды
+    loadDialogs();
+    updateInterval = setInterval(loadDialogs, 3000);
+    
+    window.addEventListener('beforeunload', function() {
+        if (updateInterval) clearInterval(updateInterval);
+    });
+</script>
+
+<style>
+    .search-result:hover {
+        background: #252a3a;
+    }
+    .search-result:last-child {
+        border-bottom: none;
+    }
+    #search-results {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .delete-conversation-btn:hover {
+        background: #c82333 !important;
+    }
+</style>
+{% endblock %}

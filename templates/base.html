@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messenger</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e1a;
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        
+        .navbar {
+            background: #141824;
+            padding: 15px 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #2a2f3f;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .navbar-brand { 
+            font-size: 24px; 
+            font-weight: 600; 
+            color: #6c8cff; 
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+        
+        .navbar-nav { 
+            display: flex; 
+            gap: 20px; 
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .nav-link {
+            color: #c0c0c0;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .nav-link:hover { 
+            background: #1e2436; 
+            color: #6c8cff;
+        }
+        
+        .user-info {
+            color: #6c8cff;
+            font-size: 14px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #2a2f3f;
+            color: #e0e0e0;
+            text-decoration: none;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover { 
+            background: #3a4055;
+            color: #ffffff;
+        }
+        
+        .btn-primary {
+            background: #4a6cf7;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5d7cff;
+        }
+        
+        .btn-danger { 
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-success { 
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .alert {
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .alert-success { 
+            background: #0d2a1a; 
+            color: #6fcf97; 
+            border: 1px solid #1a4730;
+        }
+        
+        .alert-danger { 
+            background: #2a1215; 
+            color: #e06c75; 
+            border: 1px solid #4a1c22;
+        }
+        
+        .alert-warning { 
+            background: #2a1f12; 
+            color: #e5c07b; 
+            border: 1px solid #4a3a1c;
+        }
+        
+        .alert-info { 
+            background: #122a2a; 
+            color: #61afef; 
+            border: 1px solid #1a4545;
+        }
+        
+        .card {
+            background: #141824;
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #2a2f3f;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 15px;
+            border: 1px solid #3a4055;
+            border-radius: 6px;
+            background: #1a1e2a;
+            color: #e0e0e0;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+        }
+        
+        input::placeholder, textarea::placeholder {
+            color: #5a6075;
+        }
+        
+        label { 
+            font-weight: 500; 
+            margin-bottom: 6px; 
+            display: block;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        
+        .badge-danger { background: #dc3545; color: white; }
+        .badge-success { background: #28a745; color: white; }
+        .badge-secondary { background: #3a4055; color: #c0c0c0; }
+        .badge-primary { background: #4a6cf7; color: white; }
+        
+        .table-responsive {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #2a2f3f;
+        }
+        
+        th {
+            background: #1a1e2a;
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+        
+        .text-muted {
+            color: #7a8095;
+        }
+        
+        .mt-4 { margin-top: 20px; }
+        .mb-4 { margin-bottom: 20px; }
+        .mb-2 { margin-bottom: 10px; }
+        
+        .d-flex { display: flex; }
+        .justify-content-between { justify-content: space-between; }
+        .align-items-center { align-items: center; }
+        
+        a {
+            color: #6c8cff;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            color: #8cabff;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            color: #ffffff;
+            font-weight: 500;
+        }
+        
+        hr {
+            border: none;
+            height: 1px;
+            background: #2a2f3f;
+            margin: 20px 0;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: #141824;
+            border-radius: 10px;
+            border: 1px solid #2a2f3f;
+        }
+        
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .survey-item {
+            background: #141824;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+            border: 1px solid #2a2f3f;
+        }
+        
+        .survey-item:hover {
+            transform: translateY(-2px);
+            border-color: #4a6cf7;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <a href="{{ url_for('main.index') }}" class="navbar-brand">💬 Messenger</a>
+            <div class="navbar-nav">
+                {% if current_user.is_authenticated %}
+                    <span class="user-info">👤 {{ current_user.username }} ({{ current_user.role.value }})</span>
+                    <a href="{{ url_for('main.profile') }}" class="nav-link">⚙️ Профиль</a>
+                    
+                    {% if current_user.is_admin() %}
+                        <a href="{{ url_for('main.admin_users') }}" class="nav-link">👑 Админ-панель</a>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('main.logout') }}" class="nav-link">🚪 Выйти</a>
+                {% else %}
+                    <a href="{{ url_for('main.login') }}" class="nav-link">🔐 Войти</a>
+                    <a href="{{ url_for('main.register') }}" class="nav-link">📝 Регистрация</a>
+                {% endif %}
+            </div>
+        </nav>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
